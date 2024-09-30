@@ -53,9 +53,11 @@ jobs:
           path: dist/
       - name: Install package from dist
         run: pip install ./dist/*.whl
-      - name: Basic CLI integration test
-        # Just make sure everything is installed correctly and works on an example file
-        run: mipsy-macro ./examples/test.S -o ./out.s && diff ./examples/test.preprocessed.S ./out.s
+        # Just make sure everything is installed correctly and works on example files
+      - name: Basic CLI integration test 1
+        run: mipsy-macro ./examples/test.S -o ./out1.s && diff ./examples/test.preprocessed.S ./out1.s
+      - name: Basic CLI integration test 2
+        run: mipsy-macro ./examples/test_simple.S -o ./out2.s && diff ./examples/test_simple.preprocessed.S ./out2.s
 
   publish:
     name: Publish to PyPI
