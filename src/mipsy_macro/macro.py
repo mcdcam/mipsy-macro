@@ -1,5 +1,4 @@
 # An Opinionated MIPS Macro Preprocessor
-# Version 0.1.0
 
 # Copyright (C) 2024  Cameron McDonald
 
