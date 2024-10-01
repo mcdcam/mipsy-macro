@@ -40,9 +40,10 @@ If you're installing this on a CSE machine it's a bit trickier since you can't i
 ```sh
 # install into your home directory
 pip install mipsy-macro --target ~/mipsy-macro
-# symlink the script to make it accessible from $PATH
+# copy and link the script so that imports work and it can run from anywhere
+cp ~/mipsy-macro/bin/mipsy-macro ~/mipsy-macro/mipsy-macro
 mkdir -p ~/bin
-ln -s ~/mipsy-macro/bin/mipsy-macro ~/bin/mipsy-macro
+ln -s ~/mipsy-macro/mipsy-macro ~/bin/mipsy-macro
 ```
 
 ### Installation Check:
