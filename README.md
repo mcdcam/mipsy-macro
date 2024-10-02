@@ -20,7 +20,7 @@ written for it easy to read and debug, and to catch many common macro mistakes.
 - Removal/replacement of macro comments
 - Automatic comment alignment (macro substitution misaligns comments currently)
 - Ability to use a macro in another macro
-- Editor support (maybe)
+- Editor support (maybe) - for now just use the `--watch` flag
 
 ### Missing Features
 - Function-like macros
@@ -51,6 +51,8 @@ If everything is installed correctly you should be able to run `mipsy-macro -h` 
 
 ## Usage
 To use the preprocessor, run `mipsy-macro <input filename> -o <output filename>`. For detailed info about options, run `mipsy-macro -h`.
+
+You can use the `--watch` flag to automatically re-process your code as it changes.
 
 The format for a macro definition is `#define <name> <value>`.
 The preprocessor enforces the use of prefixes on macro names as follows:

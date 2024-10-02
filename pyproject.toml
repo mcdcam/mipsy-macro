@@ -7,7 +7,7 @@ include-package-data = true
 
 [project]
 name = "mipsy_macro"
-version = "0.1.1"
+version = "0.2.0"
 description = "A MIPS assembly macro preprocessor made for the mipsy emulator"
 readme = "README.md"
 requires-python = ">=3.8"

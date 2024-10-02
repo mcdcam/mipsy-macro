@@ -88,9 +88,11 @@ with open(reserved_words_path, "r") as f:
 # the base token of the reserved words, e.g. $sp --> sp
 reserved_words_stripped = {word.lstrip("$."): word for word in reserved_words}
 
+
 # Custom exception class for errors that occur during processing as a result of invalid input
 class PreprocessingException(Exception):
     pass
+
 
 # Create a class so that the processing state can be easily accessed by methods
 # and so the preprocessor can be used by other modules
@@ -110,11 +112,13 @@ class Preprocessor:
             style="{",
         ))
 
+
     # Modifies a logged message to add the line number that processing is at
     # Used as a filter in the logger (but doesn't do any filtering)
     def _add_line_no(self, record):
         record.msg = f"Line {self.line_no}: {record.msg}"
         return True
+
 
     # Logs `message` at log level `level` iff `value` is falsy, raising an exception if required
     def _log_assert(self, value, message, level=CRITICAL):
@@ -122,6 +126,7 @@ class Preprocessor:
             self.logger.log(level, message)
             if level >= CRITICAL or (level >= ERROR and not self.err_keep_going):
                 raise PreprocessingException(message)
+
 
     def name_type(self, name):
         if name.startswith("$"):
@@ -131,6 +136,7 @@ class Preprocessor:
         else:
             return "instruction"
         
+
     def is_register(self, value: str):
         if value in reserved_word_lists["registers"]:
             return True
@@ -138,8 +144,10 @@ class Preprocessor:
             return True
         return False
     
+
     def strip_name(self, name: str):
         return name.lower().lstrip(".$@!")
+
 
     # Perform a bunch of checks on the macro name and value.
     # Doesn't strictly parse the value but instead uses heuristics/crude parsing because it's
@@ -248,16 +256,16 @@ class Preprocessor:
                 ERROR
             )
 
+
     def parse_macro(self, comment: str):
         if comment.startswith("#define "):
             try:
                 _, name, val = comment.split(maxsplit=2)
             except ValueError:
-                self.logger.error(
-                    f"Macro '{comment}' failed to parse. Check that it has a name and value.\n  " +
-                    "The correct format is #define <name> <value>."
-                )
-                exit(1)
+                msg = f"Macro '{comment}' failed to parse. Check that it has a name and " \
+                      "value.\n  The correct format is #define <name> <value>."
+                self.logger.error(msg)
+                raise PreprocessingException(msg)
             
             self.check_macro(name, val.strip())
             # print(f"{name=}, {val=}")
@@ -267,11 +275,10 @@ class Preprocessor:
             try:
                 _, label, name, val = comment.split(maxsplit=3)
             except ValueError:
-                self.logger.error(
-                    f"Macro '{comment}' failed to parse. Check that it has a label, name and " +
-                    "value.\n  The correct format is #defineuntil <label> <name> <value>."
-                )
-                exit(1)
+                msg = f"Macro '{comment}' failed to parse. Check that it has a label, name and " \
+                      "value.\n  The correct format is #defineuntil <label> <name> <value>."
+                self.logger.error(msg)
+                raise PreprocessingException(msg)
             # make sure the label is valid
             self._log_assert(
                 LABEL_RE.match(label),
@@ -290,6 +297,7 @@ class Preprocessor:
             self.macros[name] = val
             self.macros_stripped[self.strip_name(name)].append(name)
             self.label_watches[label].append(name)
+
 
     # token_end is the index of the first character after the token
     # i.e. the first character that didn't match.
@@ -325,6 +333,7 @@ class Preprocessor:
             self.new_program += replacement
             self.new_program_up_to = token_end
         self.token_start = token_end
+
 
     # Tokenise and replace in a single pass.
     def process(self, program: str):
@@ -404,54 +413,3 @@ class Preprocessor:
                 )
 
         return self.new_program
-
-def main(source_file, out_file, should_print, clobber, err_keep_going):
-    source_path = Path(source_file)
-
-    if not should_print:
-        if out_file is None:
-            out_path = source_path.with_suffix(".preprocessed" + source_path.suffix)
-        else:
-            out_path = Path(out_file)
-
-        # check args
-        if not clobber and source_path.resolve() == out_path.resolve():
-            print("Source and destination files are the same, use --clobber to allow this.")
-            exit(1)
-
-    # Do the preprocessing
-    preprocessor = Preprocessor(err_keep_going)
-    prog = source_path.read_text()
-    try:
-        output = preprocessor.process(prog)
-    except PreprocessingException:
-        # error has already been logged, just exit
-        exit(1)
-    
-    if should_print:
-        print(output)
-    else:
-        out_path.write_text(output)
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("sourcefile", help="The path of the file to be preprocessed.")
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        "-o", "--outfile",
-        help="The path of the file to output to. If no path is specified, " +
-        "{sourcefile}.processed.{sourcefile extension} is used."
-    )
-    group.add_argument("--print", action="store_true", help="Output to stdout instead of a file.")
-    parser.add_argument("--clobber", action="store_true", help="Allow overwriting the source file.")
-    parser.add_argument(
-        "--keep-going",
-        action="store_true",
-        help="Continue even if an error is detected. You probably shouldn't use this! " +
-             "If you do, be prepared for crashes and incorrect output."
-    )
-    args = parser.parse_args()
-
-    main(args.sourcefile, args.outfile, args.print, args.clobber, args.keep_going)

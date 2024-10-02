@@ -16,11 +16,19 @@
 import argparse
 from pathlib import Path
 from .macro import Preprocessor, PreprocessingException
+from sys import stderr, exit
+from time import sleep
 
-def main(source_file, out_file, should_print, clobber, err_keep_going):
+WATCH_POLL_DELAY = 0.5  # check 2x per second
+
+
+def main(source_file, out_file, should_print, clobber, err_keep_going, should_watch):
     source_path = Path(source_file)
 
-    if not should_print:
+    # get the path to be written to
+    if should_print:
+        out_path = None
+    else:
         if out_file is None:
             out_path = source_path.with_suffix(".preprocessed" + source_path.suffix)
         else:
@@ -28,22 +36,70 @@ def main(source_file, out_file, should_print, clobber, err_keep_going):
 
         # check args
         if not clobber and source_path.resolve() == out_path.resolve():
-            print("Source and destination files are the same, use --clobber to allow this.")
+            stderr.write(
+                "ERROR - Source and destination files are the same, use --clobber to allow this.\n"
+            )
             exit(1)
 
-    # Do the preprocessing
+    # do the preprocessing
     preprocessor = Preprocessor(err_keep_going)
-    prog = source_path.read_text()
-    try:
-        output = preprocessor.process(prog)
-    except PreprocessingException:
-        # error has already been logged, just exit
-        exit(1)
-    
-    if should_print:
+    if should_watch:
+        # poll the input file and reprocess if it has been changed
+        preprocess_watch(preprocessor, source_path, out_path)
+    else:
+        preprocess_once(preprocessor, source_path, out_path)
+
+
+def write_output(out_path, output):
+    if out_path is None:
+        # output to stdout
         print(output)
     else:
         out_path.write_text(output)
+
+
+def preprocess_watch(preprocessor, source_path, out_path):
+    while True:
+        prev_mtime = source_path.stat().st_mtime
+
+        prog = read_prog(source_path)
+        try:
+            output = preprocessor.process(prog)
+            write_output(out_path, output)
+            stderr.write("[ Preprocessing succeeded ]\n")
+        except PreprocessingException:
+            # we don't want to exit, just report the errors
+            stderr.write("[ Preprocessing failed, no output was generated ]\n")  
+
+        # periodically check to see if the file has changed
+        stderr.write("\n[ Watching for Changes... ]\n")
+        stderr.flush()
+        try:
+            while source_path.stat().st_mtime == prev_mtime:
+                sleep(WATCH_POLL_DELAY)
+        except KeyboardInterrupt:
+            stderr.write("[ Got ctrl-c, exiting ]\n")
+            exit(0)
+        stderr.write("[ Source file change detected ]\n")
+
+
+def preprocess_once(preprocessor, source_path, out_path):
+    prog = read_prog(source_path)
+    try:
+        output = preprocessor.process(prog)
+        write_output(out_path, output)
+    except PreprocessingException:
+        # error has already been logged, just exit
+        exit(1)
+
+
+def read_prog(source_path):
+    try:
+        return source_path.read_text()
+    except FileNotFoundError:
+        stderr.write(f"ERROR - Source file {source_path} does not exist.\n")
+        exit(1)
+
 
 def cli():
     parser = argparse.ArgumentParser()
@@ -62,6 +118,11 @@ def cli():
         help="Continue even if an error is detected. You probably shouldn't use this! " +
              "If you do, be prepared for crashes and incorrect output."
     )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Watch the source file for changes and automatically re-process it."
+    )
     args = parser.parse_args()
 
-    main(args.sourcefile, args.outfile, args.print, args.clobber, args.keep_going)
+    main(args.sourcefile, args.outfile, args.print, args.clobber, args.keep_going, args.watch)
